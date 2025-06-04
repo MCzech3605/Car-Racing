@@ -4,6 +4,9 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 from stable_baselines3.common.env_util import make_atari_env
 from gym.wrappers import GrayScaleObservation, ResizeObservation
+import os
+import shutil
+from datetime import datetime
 
 # Preprocessing wrapper for CarRacing
 class PreprocessCarRacing(gym.Wrapper):
@@ -25,11 +28,29 @@ if __name__ == "__main__":
     env = DummyVecEnv([lambda: env])
     env = VecFrameStack(env, n_stack=4)
 
-    # Create the PPO agent
-    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log="./ppo_carracing_tensorboard/")
+    # Load the PPO agent from the zip file if it exists, otherwise create a new one
+    # Directory to archive loaded zips
+    archive_dir = "ppo_carracing_archive"
+    os.makedirs(archive_dir, exist_ok=True)
 
-    # Train the agent
-    model.learn(total_timesteps=100_000)
+    # Move and/or rename the zip after loading
+    if os.path.exists("ppo_carracing.zip"):
+        model = PPO.load("ppo_carracing", env=env, tensorboard_log="./ppo_carracing_tensorboard/")
+        print("Loaded model from ppo_carracing.zip. Continuing training...")
+        # Prepare archive path
+        archive_path = os.path.join(archive_dir, "ppo_carracing.zip")
+        if os.path.exists(archive_path):
+            # If already exists, rename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_path = os.path.join(archive_dir, f"ppo_carracing_{timestamp}.zip")
+        shutil.move("ppo_carracing.zip", archive_path)
+        print(f"Moved loaded zip to: {archive_path}")
+    else:
+        model = PPO("CnnPolicy", env, verbose=1, tensorboard_log="./ppo_carracing_tensorboard/")
+        print("No existing model found. Starting new training...")
+
+    # Continue training the agent
+    model.learn(total_timesteps=1)
 
     # Save the model
     model.save("ppo_carracing")

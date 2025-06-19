@@ -19,6 +19,24 @@ class CustomRewardWrapper(gym.Wrapper):
         # Custom reward shaping
         if 'on_grass' in info and info['on_grass']:
             reward -= 10  # Large penalty for grass
+        else:
+            speed = info.get('speed', 0)
+            # Slow down before turns: sharper turn = lower target speed
+            # if 'track_angle' in info:
+            #     angle_diff = abs(info['track_angle'] - (self.last_angle if self.last_angle is not None else 0))
+            #     # The sharper the turn (higher angle_diff), the lower the allowed speed
+            #     # Example: target_speed = 6 - 10 * angle_diff (tune as needed)
+            #     target_speed = max(1, 6 - 10 * angle_diff)
+            #     if speed > target_speed:
+            #         reward -= (speed - target_speed) * (2 + 8 * angle_diff)  # Stronger penalty for sharper turns
+            #     else:
+            #         reward += 1  # Small bonus for being at/below target speed before turn
+            # else:
+                # Fallback: encourage slow movement
+            if speed > 1:
+                reward -= (speed - 1) * 2
+            else:
+                reward += 1
         if 'track_angle' in info and 'checkpoint' in info:
             if self.last_checkpoint is not None and info['checkpoint'] < self.last_checkpoint:
                 reward -= 20  # Large penalty for going backwards

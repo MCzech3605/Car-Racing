@@ -21,9 +21,38 @@ class PreprocessCarRacing(gym.Wrapper):
     def step(self, action):
         return self.env.step(action)
 
+class CustomRewardWrapper(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self.last_angle = None
+        self.last_checkpoint = None
+        self.last_on_grass = False
+
+    def reset(self, **kwargs):
+        obs = self.env.reset(**kwargs)
+        self.last_angle = 0
+        self.last_checkpoint = 0
+        self.last_on_grass = False
+        return obs
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        # Custom reward shaping
+        # 1. Punish for entering grass
+        if 'on_grass' in info and info['on_grass']:
+            reward -= 10  # Large penalty for grass
+        # 2. Prevent reward for collecting checkpoints behind
+        if 'track_angle' in info and 'checkpoint' in info:
+            if self.last_checkpoint is not None and info['checkpoint'] < self.last_checkpoint:
+                reward -= 20  # Large penalty for going backwards
+            self.last_checkpoint = info['checkpoint']
+            self.last_angle = info['track_angle']
+        return obs, reward, terminated, truncated, info
+
 if __name__ == "__main__":
     # Create and wrap the environment
     env = gym.make('CarRacing-v2', continuous=True, render_mode="rgb_array")
+    env = CustomRewardWrapper(env)
     env = PreprocessCarRacing(env)
     env = DummyVecEnv([lambda: env])
     env = VecFrameStack(env, n_stack=4)
@@ -57,6 +86,7 @@ if __name__ == "__main__":
 
     # Re-create environment for visualization with human render mode
     vis_env = gym.make('CarRacing-v2', continuous=True, render_mode="human")
+    vis_env = CustomRewardWrapper(vis_env)
     vis_env = PreprocessCarRacing(vis_env)
     vis_env = DummyVecEnv([lambda: vis_env])
     vis_env = VecFrameStack(vis_env, n_stack=4)

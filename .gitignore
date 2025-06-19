@@ -196,3 +196,4 @@ cython_debug/
 
 ppo_carracing_archive
 ppo_carracing_tensorboard
+videos
